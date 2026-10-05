@@ -1,4 +1,3 @@
-# Urvashi
 
 A voice-first AI companion with a textured 3D human avatar. Speak using the microphone; Urvashi replies aloud without using a camera. The app lives in [`companion/`](companion/README.md).
 
