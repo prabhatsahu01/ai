@@ -9,10 +9,23 @@ loadEnvironment({ path: fileURLToPath(new URL('.env', import.meta.url)), overrid
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
-const model = process.env.OPENAI_MODEL || 'gpt-6-luna'
+const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
 const endpoint = 'https://api.openai.com/v1/chat/completions'
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 const useSupabase = Boolean(process.env.SUPABASE_URL && supabaseSecretKey)
+const openAIKey = process.env.OPENAI_API_KEY?.trim()
+
+function getOpenAIHeaders() {
+  if (!openAIKey) {
+    throw new Error('OPENAI_API_KEY is not configured.')
+  }
+
+  return {
+    Authorization: `Bearer ${openAIKey}` ,
+    'Content-Type': 'application/json',
+  }
+}
+
 const supabase = useSupabase
   ? createClient(process.env.SUPABASE_URL, supabaseSecretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -303,10 +316,7 @@ app.post('/api/chat', async (request, response) => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       upstream = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getOpenAIHeaders(),
         body: JSON.stringify({
           model,
           messages: [
@@ -385,10 +395,7 @@ app.post('/api/search', async (request, response) => {
   try {
     const upstream = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getOpenAIHeaders(),
       body: JSON.stringify({
         model,
         tools: [{ type: 'web_search' }],

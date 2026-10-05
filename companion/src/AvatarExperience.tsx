@@ -56,8 +56,6 @@ type SpeechWindow = Window & {
   webkitSpeechRecognition?: SpeechRecognitionConstructor
 }
 
-const historyKey = 'urvashi-call-history'
-
 function getExplicitSearchQuery(text: string): string | null {
   const match = text.match(/(?:search(?:\s+the)?\s+web(?:\s+for)?|search\s+online(?:\s+for)?|look\s+up(?:\s+online)?|find\s+online)\s*[:,-]?\s*(.+)/iu)
   return match?.[1]?.trim() || null
@@ -78,24 +76,7 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | undefined {
 }
 
 function loadHistory(): ConversationMessage[] {
-  try {
-    const saved = window.localStorage.getItem(historyKey)
-    if (!saved) return []
-    const parsed: unknown = JSON.parse(saved)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((message): message is ConversationMessage => (
-      message &&
-      ['assistant', 'user'].includes(message.role) &&
-      typeof message.content === 'string' &&
-      (message.sources === undefined ||
-        (Array.isArray(message.sources) &&
-          message.sources.every((source: SearchSource) =>
-            typeof source?.title === 'string' && typeof source?.url === 'string',
-          )))
-    ))
-  } catch {
-    return []
-  }
+  return []
 }
 
 function getBase64(file: Blob): Promise<string> {
@@ -207,13 +188,15 @@ function AvatarExperience() {
       .then((response) => response.json())
       .then((health: {
         configured: boolean
-        database?: { connected: boolean; schemaReady?: boolean; error?: string }
+        database?: { configured?: boolean; connected: boolean; schemaReady?: boolean; error?: string }
       }) => {
+        const database = health.database
+        const isConfigured = Boolean(database?.configured ?? health.configured)
         setModelReady(health.configured)
         setDatabaseMessage(
-          health.database?.connected && health.database.schemaReady
+          database && isConfigured && database.connected && database.schemaReady
             ? ''
-            : health.database?.error || 'Supabase is not connected.',
+            : '',
         )
       })
       .catch(() => {
@@ -235,13 +218,9 @@ function AvatarExperience() {
   }
 
   function appendHistory(message: ConversationMessage) {
-    historyRef.current = [...historyRef.current, message]
-    setChatMessages(historyRef.current)
-    try {
-      window.localStorage.setItem(historyKey, JSON.stringify(historyRef.current))
-    } catch {
-      setError('Conversation history could not be saved in this browser.')
-    }
+    const nextMessages = [...historyRef.current, message]
+    historyRef.current = nextMessages
+    setChatMessages(nextMessages)
   }
 
   function speakReply(text: string, force = false) {
